@@ -10,7 +10,40 @@ import (
 	"github.com/spf13/afero"
 )
 
-func loadModule(fs afero.OsFs, dir string) *Module {
+func LoadModules(fs afero.OsFs, dir string) (modules []*Module, diags hcl.Diagnostics) {
+	infos, err := afero.ReadDir(fs, dir)
+
+	if err != nil {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Failed to read module directory",
+			Detail:   fmt.Sprintf("Module directory %s does not exist or cannot be read.", dir),
+		})
+		return
+	}
+
+	for _, info := range infos {
+		if !info.IsDir() {
+			continue
+		}
+
+		path := filepath.Join(dir, info.Name())
+
+		if isModuleDir(path) {
+			mod, modDiags := loadModule(fs, path)
+			modules = append(modules, mod)
+			diags = append(diags, modDiags...)
+		} else {
+			mods, modDiags := LoadModules(fs, path)
+			modules = append(modules, mods...)
+			diags = append(diags, modDiags...)
+		}
+	}
+
+	return
+}
+
+func loadModule(fs afero.OsFs, dir string) (*Module, hcl.Diagnostics) {
 	mod := &Module{Path: dir}
 
 	filesNames, diags := directoryFiles(fs, dir)
@@ -49,7 +82,7 @@ func loadModule(fs afero.OsFs, dir string) *Module {
 		diags = append(diags, contentDiags...)
 	}
 
-	return mod
+	return mod, diags
 }
 
 func directoryFiles(fs afero.OsFs, dir string) (files []string, diags hcl.Diagnostics) {
@@ -90,7 +123,7 @@ func directoryFiles(fs afero.OsFs, dir string) (files []string, diags hcl.Diagno
 	return
 }
 
-func IsModuleDir(dir string) bool {
+func isModuleDir(dir string) bool {
 	files, _ := directoryFiles(afero.OsFs{}, dir)
 	return len(files) != 0
 }

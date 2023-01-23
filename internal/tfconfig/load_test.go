@@ -20,8 +20,40 @@ func TestDirectoryFiles(t *testing.T) {
 }
 
 func TestLoadModule(t *testing.T) {
-	mod := loadModule(afero.OsFs{}, "testdata/basic")
+	mod, _ := loadModule(afero.OsFs{}, "testdata/basic")
 
 	assert.Equal(t, []string{"~> 1.3"}, mod.RequiredCore)
 	assert.Equal(t, "aws.basic.bucket", mod.Backend.Attributes["bucket"])
+	assert.Equal(t, "environments/nonprod/state.tfstate", mod.Backend.Attributes["key"])
+}
+
+func TestLoadModules(t *testing.T) {
+	mods, _ := LoadModules(afero.OsFs{}, "testdata/complex")
+
+	expectedModuleOne := &Module{
+		Path:         "testdata/complex/environments/nonprod/project_one",
+		RequiredCore: []string{"~> 1.3"},
+		Backend: &Backend{
+			Type: "s3",
+			Attributes: map[string]string{
+				"bucket": "aws.basic.bucket",
+				"key":    "project_one/nonprod/state.tfstate",
+			},
+		},
+	}
+
+	expectedModuleTwo := &Module{
+		Path:         "testdata/complex/environments/nonprod/project_two",
+		RequiredCore: []string{"~> 1.3"},
+		Backend: &Backend{
+			Type: "s3",
+			Attributes: map[string]string{
+				"bucket": "aws.basic.bucket",
+				"key":    "project_two/nonprod/state.tfstate",
+			},
+		},
+	}
+
+	assert.Equal(t, expectedModuleOne, &mods[0])
+	assert.Equal(t, expectedModuleTwo, &mods[1])
 }

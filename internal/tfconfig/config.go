@@ -28,23 +28,10 @@ func loadConfig(file *hcl.File, mod *Module) hcl.Diagnostics {
 			for _, innerBlock := range content.Blocks {
 				switch innerBlock.Type {
 				case "backend":
-					label := innerBlock.Labels[0]
+					backendConfig, configDiags := decodeBackendConfig(innerBlock)
 
-					mod.Backend = &Backend{
-						Type:       label,
-						Attributes: map[string]string{},
-					}
-
-					attrs, _ := innerBlock.Body.JustAttributes()
-
-					if attr, defined := attrs["bucket"]; defined {
-						var bucket string
-						valDiags := gohcl.DecodeExpression(attr.Expr, nil, &bucket)
-						diags = append(diags, valDiags...)
-
-						mod.Backend.Attributes["bucket"] = bucket
-					}
-
+					diags = append(diags, configDiags...)
+					mod.Backend = backendConfig
 				}
 			}
 		}

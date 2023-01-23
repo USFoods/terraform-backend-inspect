@@ -2,7 +2,7 @@ terraform {
   required_version = "~> 1.3"
   backend "s3" {
     bucket = "aws.basic.bucket"
-    key = "environments/nonprod/state.tfstate"
+    key = "project_one/nonprod/state.tfstate"
   }
   required_providers {
     newrelic = {
