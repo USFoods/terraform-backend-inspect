@@ -21,6 +21,14 @@ func decodeBackendConfig(block *hcl.Block) (*Backend, hcl.Diagnostics) {
 	attrs, diags := block.Body.JustAttributes()
 
 	switch label {
+	case "local":
+		if attr, defined := attrs["path"]; defined {
+			var path string
+			valDiags := gohcl.DecodeExpression(attr.Expr, nil, &path)
+			diags = append(diags, valDiags...)
+
+			backend.Attributes["bucket"] = path
+		}
 	case "s3":
 		if attr, defined := attrs["bucket"]; defined {
 			var bucket string
