@@ -72,7 +72,13 @@ func (cli *CLI) Run() int {
 		return ExitCodeError
 	}
 
-	issues := tfconfig.ParseRules(modules)
+	rules := []func([]*tfconfig.Module) tfconfig.Issues{
+		tfconfig.ModuleShouldHaveRemoteBackend,
+		tfconfig.ModuleShouldHaveLocalBackendOverride,
+		tfconfig.ModuleShouldHaveUniqueBackend,
+	}
+
+	issues := tfconfig.ParseRules(modules, rules)
 
 	if len(issues) > 0 {
 		cli.formatter.Print(issues, nil)

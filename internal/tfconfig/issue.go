@@ -6,7 +6,7 @@ type Issue struct {
 	Severity   Severity
 	Message    string
 	ModulePath string
-	Range      hcl.Range
+	Range      *hcl.Range
 }
 
 // Issues is an alias for the map of Issue

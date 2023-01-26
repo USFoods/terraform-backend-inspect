@@ -3,6 +3,9 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/hashicorp/hcl/v2"
@@ -31,6 +34,18 @@ func (f *Formatter) Print(issues tfconfig.Issues, diags hcl.Diagnostics) {
 				"%s: %s \n\n",
 				colorSeverity(issue.Severity), colorBold(issue.Message),
 			)
+
+			wd, _ := os.Getwd()
+
+			fmt.Fprintf(f.Stdout, "  for module: %s\n", strings.ReplaceAll(issue.ModulePath, wd, ""))
+
+			if issue.Range != nil {
+				fmt.Fprintf(f.Stdout, "  on %s line %d\n", filepath.Base(issue.Range.Filename), issue.Range.Start.Line)
+			} else {
+				fmt.Fprintf(f.Stdout, "   (source code not available)\n")
+			}
+
+			fmt.Fprint(f.Stdout, "\n")
 		}
 	}
 

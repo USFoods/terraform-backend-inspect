@@ -113,6 +113,14 @@ func findConfigFiles(dir string) ([]string, error) {
 	return primary, nil
 }
 
+func isOverride(file string) bool {
+	baseName := strings.TrimSuffix(
+		filepath.Base(file),
+		filepath.Ext(file))
+
+	return baseName == "override" || strings.HasSuffix(baseName, "_override")
+}
+
 func isTerraformFile(path string) bool {
 	return strings.HasSuffix(path, ".tf") ||
 		strings.HasSuffix(path, ".tf.json")
