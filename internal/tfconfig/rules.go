@@ -15,9 +15,18 @@ func hasValidS3BackendConfig(attrs map[string]string) bool {
 
 func ModuleShouldHaveRemoteBackend(modules []*Module) Issues {
 	issues := Issues{}
-	for _, module := range modules {
 
-		if len(module.Backends) == 0 {
+	for _, module := range modules {
+		// remove override backend configurations since
+		// overrides should not contain remote backends
+		var primaryBackends []*Backend = nil
+		for _, backend := range module.Backends {
+			if !isOverride(backend.Range.Filename) {
+				primaryBackends = append(primaryBackends, backend)
+			}
+		}
+
+		if len(primaryBackends) == 0 {
 			issues = append(issues, &Issue{
 				Severity:   ERROR,
 				ModulePath: module.Path,
@@ -27,7 +36,7 @@ func ModuleShouldHaveRemoteBackend(modules []*Module) Issues {
 			continue
 		}
 
-		for _, backend := range module.Backends {
+		for _, backend := range primaryBackends {
 			// remote backends shouldn't be defined in overrides
 			if isOverride(backend.Range.Filename) {
 				continue
@@ -69,15 +78,15 @@ func ModuleShouldHaveLocalBackendOverride(modules []*Module) Issues {
 	issues := Issues{}
 	for _, module := range modules {
 
-		var overrideBackend *Backend = nil
+		var overrideBackends []*Backend = nil
 		for _, backend := range module.Backends {
 			// local backends should only be defined in overrides
-			if isOverride(backend.Range.Filename) && backend.Type == "local" {
-				overrideBackend = backend
+			if isOverride(backend.Range.Filename) {
+				overrideBackends = append(overrideBackends, backend)
 			}
 		}
 
-		if overrideBackend == nil {
+		if len(overrideBackends) == 0 {
 			issues = append(issues, &Issue{
 				Severity:   ERROR,
 				ModulePath: module.Path,
@@ -87,51 +96,27 @@ func ModuleShouldHaveLocalBackendOverride(modules []*Module) Issues {
 			continue
 		}
 
-		if !hasValidLocalBackendConfig(overrideBackend.Attributes) {
-			issues = append(issues, &Issue{
-				ModulePath: module.Path,
-				Message:    "Invalid local backend override configuration",
-				Range:      &overrideBackend.Range,
-				Severity:   ERROR,
-			})
+		for _, backend := range overrideBackends {
+			switch backend.Type {
+			case "local":
+				if !hasValidLocalBackendConfig(backend.Attributes) {
+					issues = append(issues, &Issue{
+						ModulePath: module.Path,
+						Message:    "Invalid local backend override configuration",
+						Range:      &backend.Range,
+						Severity:   ERROR,
+					})
+				}
+
+			default:
+				issues = append(issues, &Issue{
+					Severity:   ERROR,
+					ModulePath: module.Path,
+					Message:    "No local backend override configured",
+				})
+			}
+
 		}
-
-		// if len(module.Backends) == 0 {
-		// 	issues = append(issues, &Issue{
-		// 		Severity:   ERROR,
-		// 		ModulePath: module.Path,
-		// 		Message:    "No local backend override configured",
-		// 	})
-
-		// 	continue
-		// }
-
-		// for _, backend := range module.Backends {
-		// 	// local backends should only be defined in overrides
-		// 	if !isOverride(backend.Range.Filename) {
-		// 		continue
-		// 	}
-
-		// 	switch backend.Type {
-		// 	case "local":
-		// 		if !hasValidLocalBackendConfig(backend.Attributes) {
-		// 			issues = append(issues, &Issue{
-		// 				ModulePath: module.Path,
-		// 				Message:    "Invalid local backend override configuration",
-		// 				Range:      &backend.Range,
-		// 				Severity:   ERROR,
-		// 			})
-		// 		}
-
-		// 	default:
-		// 		issues = append(issues, &Issue{
-		// 			Severity:   ERROR,
-		// 			ModulePath: module.Path,
-		// 			Message:    "No local backend override configured",
-		// 		})
-		// 	}
-
-		// }
 	}
 
 	return issues

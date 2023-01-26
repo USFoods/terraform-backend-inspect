@@ -145,3 +145,28 @@ func TestShouldRaiseIssueOnNoLocalOverride(t *testing.T) {
 
 	assert.True(t, cmp.Equal(expectedIssues, issues, opts...), cmp.Diff(expectedIssues, issues, opts...))
 }
+
+func TestShouldRaiseIssueNoRemoteWithOverride(t *testing.T) {
+	modules, diags := LoadModules([]string{
+		"testdata/local_with_override",
+	})
+
+	if diags.HasErrors() {
+		t.Fatalf("error loading module: %s", diags.Error())
+	}
+
+	issues := ModuleShouldHaveRemoteBackend(modules)
+
+	expectedIssues := Issues{
+		{
+			Message:    "No remote backend configured",
+			ModulePath: "testdata/local_with_override",
+			Range:      nil,
+			Severity:   ERROR,
+		},
+	}
+
+	opts := []cmp.Option{cmpopts.IgnoreFields(hcl.Pos{}, "Byte")}
+
+	assert.True(t, cmp.Equal(expectedIssues, issues, opts...), cmp.Diff(expectedIssues, issues, opts...))
+}
