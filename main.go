@@ -1,69 +1,67 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/spf13/afero"
-	"github.com/usfoods/terraform-backend-inspect/internal/tfconfig"
+	"github.com/mattn/go-colorable"
+	"github.com/usfoods/terraform-backend-inspect/internal/cmd"
 )
 
 func main() {
-	flag.Parse()
+	cli, err := cmd.NewCLI(colorable.NewColorable(os.Stdout), colorable.NewColorable(os.Stderr))
 
-	var dir string
-	if flag.NArg() > 0 {
-		dir = flag.Arg(0)
-	} else {
-		dir = "."
+	if err != nil {
+		fmt.Fprint(os.Stderr, err.Error())
+		os.Exit(cmd.ExitCodeError)
 	}
 
-	modIssues := map[string][]string{}
+	os.Exit(cli.Run())
 
-	modules, diagnostics := tfconfig.LoadModules(afero.OsFs{}, dir)
+	// modIssues := map[string][]string{}
 
-	if diagnostics.HasErrors() {
-		for _, err := range diagnostics.Errs() {
-			print(err.Error())
-		}
+	// modules, diagnostics := tfconfig.LoadModules(afero.OsFs{}, dir)
 
-		os.Exit(1)
-	}
+	// if diagnostics.HasErrors() {
+	// 	for _, err := range diagnostics.Errs() {
+	// 		print(err.Error())
+	// 	}
 
-	stateFiles := map[string][]string{}
+	// 	os.Exit(1)
+	// }
 
-	for _, mod := range modules {
-		backend := mod.Backend
-		modPath := strings.ReplaceAll(mod.Path, dir, "")
+	// stateFiles := map[string][]string{}
 
-		if backend == nil || backend.Type == "local" {
-			modIssues[modPath] = append(modIssues[modPath], "Found local backend configuration")
-			continue
-		}
+	// for _, mod := range modules {
+	// 	backend := mod.Backend
+	// 	modPath := strings.ReplaceAll(mod.Path, dir, "")
 
-		attrs := backend.Attributes
-		statePath := fmt.Sprintf("%s/%s", attrs["bucket"], attrs["key"])
+	// 	if backend == nil || backend.Type == "local" {
+	// 		modIssues[modPath] = append(modIssues[modPath], "Found local backend configuration")
+	// 		continue
+	// 	}
 
-		stateFiles[statePath] = append(stateFiles[statePath], modPath)
-	}
+	// 	attrs := backend.Attributes
+	// 	statePath := fmt.Sprintf("%s/%s", attrs["bucket"], attrs["key"])
 
-	for _, modules := range stateFiles {
-		if len(modules) > 1 {
-			for _, module := range modules {
-				modIssues[module] = append(modIssues[module], "Found duplicate backend configuration")
-			}
-		}
-	}
+	// 	stateFiles[statePath] = append(stateFiles[statePath], modPath)
+	// }
 
-	for key, issues := range modIssues {
-		for _, issue := range issues {
-			fmt.Printf("%s: Warning - %s\n", key, issue)
-		}
-	}
+	// for _, modules := range stateFiles {
+	// 	if len(modules) > 1 {
+	// 		for _, module := range modules {
+	// 			modIssues[module] = append(modIssues[module], "Found duplicate backend configuration")
+	// 		}
+	// 	}
+	// }
 
-	if len(modIssues) > 0 {
-		os.Exit(2)
-	}
+	// for key, issues := range modIssues {
+	// 	for _, issue := range issues {
+	// 		fmt.Printf("%s: Warning - %s\n", key, issue)
+	// 	}
+	// }
+
+	// if len(modIssues) > 0 {
+	// 	os.Exit(2)
+	// }
 }

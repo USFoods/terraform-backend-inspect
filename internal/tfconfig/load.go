@@ -2,59 +2,49 @@ package tfconfig
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
-	"github.com/spf13/afero"
 )
 
-func LoadModules(fs afero.OsFs, dir string) (modules []*Module, diags hcl.Diagnostics) {
-	infos, err := afero.ReadDir(fs, dir)
+func LoadModules(workingDirs []string) (modules []*Module, diags hcl.Diagnostics) {
+	for _, wd := range workingDirs {
+		// attempt to find any Terraform files
+		configFiles, err := findConfigFiles(wd)
 
-	if err != nil {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Failed to read module directory",
-			Detail:   fmt.Sprintf("Module directory %s does not exist or cannot be read.", dir),
-		})
-		return
-	}
+		if err != nil {
+			diags = append(diags, &hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Failed to read module directory",
+				Detail:   fmt.Sprintf("Module directory %s does not exist or cannot be read.", wd),
+			})
 
-	for _, info := range infos {
-		if !info.IsDir() {
 			continue
 		}
 
-		path := filepath.Join(dir, info.Name())
-
-		if isModuleDir(path) {
-			mod, modDiags := loadModule(fs, path)
-			modules = append(modules, mod)
-			diags = append(diags, modDiags...)
-		} else {
-			mods, modDiags := LoadModules(fs, path)
-			modules = append(modules, mods...)
-			diags = append(diags, modDiags...)
+		if len(configFiles) > 0 {
+			module, moduleDiags := loadModule(configFiles, wd)
+			modules = append(modules, module)
+			diags = append(diags, moduleDiags...)
 		}
 	}
 
 	return
 }
 
-func loadModule(fs afero.OsFs, dir string) (*Module, hcl.Diagnostics) {
-	mod := &Module{Path: dir}
-
-	filesNames, diags := directoryFiles(fs, dir)
+func loadModule(moduleFiles []string, moduleDir string) (mod *Module, diags hcl.Diagnostics) {
+	mod = &Module{Path: moduleDir}
 
 	parser := hclparse.NewParser()
 
-	for _, filename := range filesNames {
+	for _, filename := range moduleFiles {
 		var file *hcl.File
 		var fileDiags hcl.Diagnostics
 
-		b, err := afero.ReadFile(fs, filename)
+		b, err := os.ReadFile(filename)
 
 		if err != nil {
 			diags = append(diags, &hcl.Diagnostic{
@@ -62,6 +52,7 @@ func loadModule(fs afero.OsFs, dir string) (*Module, hcl.Diagnostics) {
 				Summary:  "Failed to read file",
 				Detail:   fmt.Sprintf("The configuration file %q could not be read.", filename),
 			})
+
 			continue
 		}
 
@@ -82,20 +73,18 @@ func loadModule(fs afero.OsFs, dir string) (*Module, hcl.Diagnostics) {
 		diags = append(diags, contentDiags...)
 	}
 
-	return mod, diags
+	return
 }
 
-func directoryFiles(fs afero.OsFs, dir string) (files []string, diags hcl.Diagnostics) {
-	infos, err := afero.ReadDir(fs, dir)
+func findConfigFiles(dir string) ([]string, error) {
+	infos, err := os.ReadDir(dir)
 
 	if err != nil {
-		diags = append(diags, &hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Failed to read module directory",
-			Detail:   fmt.Sprintf("Module directory %s does not exist or cannot be read.", dir),
-		})
-		return
+		return []string{}, err
 	}
+
+	var primary []string
+	var override []string
 
 	for _, info := range infos {
 		if info.IsDir() {
@@ -111,21 +100,17 @@ func directoryFiles(fs afero.OsFs, dir string) (files []string, diags hcl.Diagno
 		baseName := strings.TrimSuffix(name, filepath.Ext(name))
 		isOverride := baseName == "override" || strings.HasSuffix(baseName, "_override")
 
-		if isOverride {
-			continue
-		}
-
 		fullPath := filepath.Join(dir, name)
-
-		files = append(files, fullPath)
+		if isOverride {
+			override = append(override, fullPath)
+		} else {
+			primary = append(primary, fullPath)
+		}
 	}
 
-	return
-}
+	primary = append(primary, override...)
 
-func isModuleDir(dir string) bool {
-	files, _ := directoryFiles(afero.OsFs{}, dir)
-	return len(files) != 0
+	return primary, nil
 }
 
 func isTerraformFile(path string) bool {

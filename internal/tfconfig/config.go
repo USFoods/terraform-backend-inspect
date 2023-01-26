@@ -31,7 +31,7 @@ func loadConfig(file *hcl.File, mod *Module) hcl.Diagnostics {
 					backendConfig, configDiags := decodeBackendConfig(innerBlock)
 
 					diags = append(diags, configDiags...)
-					mod.Backend = backendConfig
+					mod.Backends = append(mod.Backends, backendConfig)
 				}
 			}
 		}

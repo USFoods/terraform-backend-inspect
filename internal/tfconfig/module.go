@@ -7,5 +7,5 @@ type Module struct {
 	Path string `json:"path"`
 
 	RequiredCore []string `json:"required_core,omitempty"`
-	Backend      *Backend
+	Backends     []*Backend
 }

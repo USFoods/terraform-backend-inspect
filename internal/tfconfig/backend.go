@@ -8,6 +8,8 @@ import (
 type Backend struct {
 	Type       string
 	Attributes map[string]string
+
+	Range hcl.Range
 }
 
 func decodeBackendConfig(block *hcl.Block) (*Backend, hcl.Diagnostics) {
@@ -16,6 +18,7 @@ func decodeBackendConfig(block *hcl.Block) (*Backend, hcl.Diagnostics) {
 	backend := &Backend{
 		Type:       label,
 		Attributes: map[string]string{},
+		Range:      block.DefRange,
 	}
 
 	attrs, diags := block.Body.JustAttributes()
@@ -27,7 +30,7 @@ func decodeBackendConfig(block *hcl.Block) (*Backend, hcl.Diagnostics) {
 			valDiags := gohcl.DecodeExpression(attr.Expr, nil, &path)
 			diags = append(diags, valDiags...)
 
-			backend.Attributes["bucket"] = path
+			backend.Attributes["path"] = path
 		}
 	case "s3":
 		if attr, defined := attrs["bucket"]; defined {
