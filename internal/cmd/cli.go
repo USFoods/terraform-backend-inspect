@@ -96,10 +96,14 @@ func findWorkingDirs(dir string) ([]string, error) {
 			return err
 		}
 
+		if !d.IsDir() {
+			return nil
+		}
+
 		// making an assumption that modules are kept in a directory
 		// that is aptly named "modules"
-		if !d.IsDir() || d.Name() == "modules" {
-			return nil
+		if d.Name() == "modules" {
+			return filepath.SkipDir
 		}
 
 		// hidden directories are skipped
